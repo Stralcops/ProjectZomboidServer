@@ -173,3 +173,29 @@ cat $V/.cache/Server/servertest_SandboxVars.lua > zomboid/servertest_SandboxVars
 5. Redémarrer, attendre `SERVER STARTED`. Les lignes `ERROR ... IsoMetaGrid.load` ou `Mannequin zone` sont des avertissements connus des données de carte, sans effet.
 6. Depuis le client Steam (Build 42 stable) sur Windows : Rejoindre > Favoris > IP `127.0.0.1`, port `16261`, mot de passe serveur `Password=`. Si le client ne trouve pas le serveur, utiliser l'IP WSL à la place.
 7. Dans la console du panel, donner les droits admin à ton personnage : `grantadmin "TonPseudo"`.
+
+## 6. Planifications
+
+Deux planifications sur le serveur `zomboid` (panel > serveur > Schedules), limite de sauvegardes du serveur fixée à 7 (Admin > Servers > zomboid > Backup limit) :
+
+| Nom | Cron | Tâches |
+|---|---|---|
+| Sauvegarde nocturne | `0 4 * * *` | 1. Backup |
+| Redémarrage quotidien | `55 4 * * *` | 1. Send command `servermsg "Redemarrage du serveur dans 5 minutes"` ; 2. Send command `servermsg "Redemarrage dans 1 minute, mettez-vous a l abri"` (délai 240 s) ; 3. Send command `save` (délai 50 s) ; 4. Power `restart` (délai 10 s) |
+
+En ligne de commande, le script équivalent est celui-ci (idempotent) :
+
+```bash
+docker compose exec -T panel php artisan tinker --execute='
+$server = App\Models\Server::find(1); $server->update(["backup_limit" => 7]);
+function mk($server, $name, $h, $m, $tasks) {
+  $s = App\Models\Schedule::firstOrCreate(["server_id" => $server->id, "name" => $name],
+    ["cron_day_of_week" => "*", "cron_month" => "*", "cron_day_of_month" => "*", "cron_hour" => $h, "cron_minute" => $m, "is_active" => true, "only_when_online" => false]);
+  if ($s->tasks()->count() === 0) { $i = 1; foreach ($tasks as [$a, $p, $o]) App\Models\Task::create(["schedule_id" => $s->id, "sequence_id" => $i++, "action" => $a, "payload" => $p, "time_offset" => $o, "continue_on_failure" => false]); }
+  $s->next_run_at = App\Helpers\Utilities::getScheduleNextRunDate($m, $h, "*", "*", "*"); $s->save();
+}
+mk($server, "Sauvegarde nocturne", "4", "0", [["backup", "", 0]]);
+mk($server, "Redémarrage quotidien", "4", "55", [["command", "servermsg \"Redemarrage du serveur dans 5 minutes\"", 0], ["command", "servermsg \"Redemarrage dans 1 minute, mettez-vous a l abri\"", 240], ["command", "save", 50], ["power", "restart", 10]]);'
+```
+
+Test : sur chaque planification, « Run now » dans le panel. La sauvegarde apparaît dans l'onglet Backups (réussie, ~2,6 Go pour un monde neuf). Le redémarrage affiche les messages dans la console puis relance le serveur après 5 minutes.
