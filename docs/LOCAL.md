@@ -101,3 +101,75 @@ https://raw.githubusercontent.com/pelican-eggs/games-steamcmd/main/project_zombo
 ```
 
 L'egg « Project Zomboid » apparaît, image `ghcr.io/parkervcp/steamcmd:debian`.
+
+## 4. Créer le serveur Zomboid
+
+Soit dans le panel (Admin > Servers > Create), soit en ligne de commande. Valeurs :
+
+| Champ | Valeur |
+|---|---|
+| Name | `zomboid` |
+| Owner | ton compte (id 1) |
+| Egg | Project Zomboid |
+| Allocation principale | `0.0.0.0:16261`, supplémentaire `0.0.0.0:16262` |
+| Memory | `7168` MiB, Disk `30000` MiB, CPU `0` (illimité) |
+| `SERVER_NAME` | `servertest` (donne `servertest.ini`) |
+| `ADMIN_USER` / `ADMIN_PASSWORD` | `admin` / mot de passe fort (≤ 32 caractères) |
+| `STEAM_PORT` | `16262` |
+| `MAX_PLAYERS` | `8` |
+| `SRCDS_BETAID` | vide (Build 42 stable) |
+| `AUTO_UPDATE` | `1` |
+
+En ligne de commande (remplacer le mot de passe) :
+
+```bash
+docker compose exec -T -e PW='MotDePasseAdmin' panel php artisan tinker --execute='
+$egg = App\Models\Egg::find(1);
+$startup = array_values($egg->startup_commands)[0];
+$s = app(App\Services\Servers\ServerCreationService::class)->handle([
+  "name" => "zomboid", "description" => "Project Zomboid B42 vanilla, 8 joueurs",
+  "owner_id" => 1, "egg_id" => 1, "node_id" => 1, "allocation_id" => 1, "allocation_additional" => [2],
+  "memory" => 7168, "swap" => 0, "disk" => 30000, "io" => 500, "cpu" => 0, "threads" => null, "oom_killer" => false,
+  "startup" => $startup, "image" => "ghcr.io/parkervcp/steamcmd:debian",
+  "environment" => ["SERVER_NAME" => "servertest", "ADMIN_USER" => "admin", "ADMIN_PASSWORD" => getenv("PW"),
+    "STEAM_PORT" => "16262", "MAX_PLAYERS" => "8", "SRCDS_APPID" => "380870", "SRCDS_BETAID" => "", "AUTO_UPDATE" => "1"],
+  "skip_scripts" => false, "start_on_completion" => false,
+]);
+echo $s->uuid, "\n";'
+```
+
+L'installation SteamCMD (~7 Go) prend quelques minutes. Suivre dans la console du panel ou avec `docker compose logs -f wings`. Le volume du serveur est `/var/lib/pelican/volumes/<uuid>/`.
+
+Mémoire JVM (le binaire lit `ProjectZomboid64.json`, défaut `-Xmx8g`) :
+
+```bash
+V=/var/lib/pelican/volumes/<uuid>
+sed -i -E 's/"-Xmx[0-9]+[mMgG]"/"-Xmx6g"/' $V/ProjectZomboid64.json   # root
+```
+
+## 5. Injecter la configuration et se connecter
+
+1. Démarrer le serveur dans le panel, attendre `SERVER STARTED` (génère `.cache/Server/servertest.ini` et `servertest_SandboxVars.lua`), puis l'arrêter.
+2. Fusionner les surcharges du dépôt (le fichier généré est complet, on remplace seulement nos clés) :
+
+```bash
+INI=$V/.cache/Server/servertest.ini                                     # root pour la suite
+cp "$INI" "$INI.bak"
+while IFS='=' read -r key val; do
+  case "$key" in ''|'#'*) continue;; esac
+  if grep -q "^$key=" "$INI"; then sed -i "s|^$key=.*|$key=$val|" "$INI"; else echo "$key=$val" >> "$INI"; fi
+done < zomboid/servertest.ini
+chown 988:988 "$INI"
+grep -E '^(MaxPlayers|PVP|Public|Open|BackupsOnStart|Mods|WorkshopItems|RCONPort)=' "$INI"
+```
+
+3. Renseigner `Password=` (mot de passe des joueurs) et `RCONPassword=` dans ce même fichier, ou depuis le panel (Files > `.cache/Server/servertest.ini`). Jamais dans git.
+4. Capturer le preset Apocalypse dans le dépôt (déjà fait, à refaire après une mise à jour du jeu) :
+
+```bash
+cat $V/.cache/Server/servertest_SandboxVars.lua > zomboid/servertest_SandboxVars.lua
+```
+
+5. Redémarrer, attendre `SERVER STARTED`. Les lignes `ERROR ... IsoMetaGrid.load` ou `Mannequin zone` sont des avertissements connus des données de carte, sans effet.
+6. Depuis le client Steam (Build 42 stable) sur Windows : Rejoindre > Favoris > IP `127.0.0.1`, port `16261`, mot de passe serveur `Password=`. Si le client ne trouve pas le serveur, utiliser l'IP WSL à la place.
+7. Dans la console du panel, donner les droits admin à ton personnage : `grantadmin "TonPseudo"`.
