@@ -171,7 +171,7 @@ cat $V/.cache/Server/servertest_SandboxVars.lua > zomboid/servertest_SandboxVars
 ```
 
 5. Redémarrer, attendre `SERVER STARTED`. Les lignes `ERROR ... IsoMetaGrid.load` ou `Mannequin zone` sont des avertissements connus des données de carte, sans effet.
-6. Depuis le client Steam (Build 42 stable) sur Windows : Rejoindre > Favoris > IP `127.0.0.1`, port `16261`, mot de passe serveur `Password=`. Si le client ne trouve pas le serveur, utiliser l'IP WSL à la place.
+6. Depuis le client Steam (Build 42 stable) sur Windows : Rejoindre > Favoris > IP **= l'IP WSL** (`ip -4 addr show eth0`, par exemple `172.26.144.179`), port `16261`, mot de passe serveur `Password=`. Ne pas utiliser `127.0.0.1` : en mode NAT, WSL2 ne relaie vers Windows que le TCP sur `localhost`, jamais l'UDP, et Zomboid n'utilise que l'UDP (vérifié avec un écho UDP : aucune réponse via `127.0.0.1`, réponse via l'IP WSL). L'IP WSL peut changer après un redémarrage de Windows.
 7. Dans la console du panel, donner les droits admin à ton personnage : `grantadmin "TonPseudo"`.
 
 ## 6. Planifications
