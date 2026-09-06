@@ -11,3 +11,6 @@
 #   remote: doit être joignable DEPUIS le conteneur wings.
 #           Local (BEHIND_PROXY=true) : http://panel   (nom du service compose, port 80 interne)
 #           OVH   (BEHIND_PROXY=false): https://<domaine>
+#   allowed_origins: origine(s) du navigateur si différente(s) de remote, sinon la console
+#           du panel échoue (websocket 403). Local : ['http://localhost:8081']. OVH : [] suffit
+#           puisque remote et APP_URL sont identiques.

@@ -71,6 +71,12 @@ grep -E '^\s*remote:' /etc/pelican/config.yml
 
 La ligne `remote:` doit valoir `http://panel` (nom du service compose, port 80 interne).
 
+Autoriser aussi l'origine du navigateur, sinon la console et le gestionnaire de fichiers du panel échouent avec « Could not connect to websocket » (Wings n'accepte par défaut que l'origine égale à `remote`) :
+
+```bash
+sed -i "s|^allowed_origins: \[\]|allowed_origins: ['http://localhost:8081']|" /etc/pelican/config.yml   # root
+```
+
 ```bash
 docker compose up -d wings
 sleep 8 && docker compose logs wings | tail -20
