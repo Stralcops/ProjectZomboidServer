@@ -1,10 +1,13 @@
 # Ce fichier n'est PAS lu par Wings. Le vrai fichier est /etc/pelican/config.yml sur l'hôte.
-# Il est généré par le panel : Admin > Nodes > (ton nœud) > onglet "Configuration".
-# Copie ce contenu tel quel dans /etc/pelican/config.yml (sudo), puis `docker compose restart wings`.
+# Il est généré par le panel :
+#   - en ligne de commande : docker compose exec -T panel php artisan p:node:configuration <id>
+#   - ou Admin > Nodes > (ton nœud) > onglet "Configuration".
+# Écris-le dans /etc/pelican/config.yml (root), puis `docker compose restart wings`.
 #
 # Points à vérifier dans le fichier généré :
 #   api.host: 0.0.0.0
 #   api.port: 8080
 #   system.data: /var/lib/pelican/volumes
-#   remote: doit être joignable DEPUIS le conteneur wings. En local : http://panel:8081 (nom du service
-#           compose + port de APP_URL), pas http://localhost:8081. Sur OVH : https://<domaine>.
+#   remote: doit être joignable DEPUIS le conteneur wings.
+#           Local (BEHIND_PROXY=true) : http://panel   (nom du service compose, port 80 interne)
+#           OVH   (BEHIND_PROXY=false): https://<domaine>

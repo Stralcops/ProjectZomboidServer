@@ -1,6 +1,7 @@
 # Premier lancement en local (WSL Ubuntu)
 
 Toutes les commandes se lancent dans un terminal Ubuntu (WSL), depuis `~/ProjectZomboid`.
+Les commandes marquées `# root` se lancent avec `sudo`, ou depuis Windows avec `wsl -d Ubuntu -u root`.
 
 ## 1. Prérequis et démarrage du panel
 
@@ -9,18 +10,20 @@ Toutes les commandes se lancent dans un terminal Ubuntu (WSL), depuis `~/Project
 - Dossiers hôte pour Wings (une fois) :
 
 ```bash
-sudo mkdir -p /etc/pelican /var/lib/pelican /var/log/pelican /tmp/pelican
+mkdir -p /etc/pelican /var/lib/pelican /var/log/pelican /tmp/pelican   # root
 ```
 
 - Configuration et démarrage du panel :
 
 ```bash
-cp .env.example .env          # APP_URL=http://localhost:8081
+cp .env.example .env          # APP_URL=http://localhost:8081, BEHIND_PROXY=true
 docker compose config --quiet && docker compose up -d panel
 docker compose logs panel | grep 'Generated app key'
 ```
 
 Note la ligne « Generated app key » : c'est la clé de chiffrement de la base du panel. Sans elle, une base restaurée ailleurs est illisible.
+
+Pourquoi `BEHIND_PROXY=true` en local : le Caddy du conteneur ne sert sinon que le nom d'hôte de `APP_URL` (`localhost:8081`) et renvoie une page vide à tout autre nom, y compris `panel`, que Wings utilise pour joindre le panel. En mode proxy, Caddy sert tout nom d'hôte sur le port 80 interne, mappé sur 8081.
 
 Le premier démarrage applique les migrations : compte environ une minute, puis vérifie :
 
@@ -32,7 +35,7 @@ curl -s -o /dev/null -w '%{http_code}\n' http://localhost:8081/installer   # 200
 
 Ouvre `http://localhost:8081/installer` dans le navigateur Windows.
 
-- Base de données : **SQLite**
+- Base de données : **SQLite**, chemin `/pelican-data/database/database.sqlite` (chemin absolu sur le volume ; le défaut `database.sqlite` fonctionne aussi car le conteneur le lie au volume)
 - Cache : **filesystem**
 - Session : **filesystem**
 - Queue : **database**
@@ -42,47 +45,56 @@ Ouvre `http://localhost:8081/installer` dans le navigateur Windows.
 
 ## 3. Nœud Wings et egg
 
-### Créer le nœud
+### Créer le nœud (ligne de commande)
 
-Panel > Admin > Nodes > Create :
+Le FQDN du nœud doit être joignable par ton navigateur Windows **et** par le conteneur panel : c'est l'IP WSL (`ip -4 addr show eth0`). `localhost` ne convient pas (dans le conteneur panel, c'est le conteneur lui-même).
 
-| Champ | Valeur |
-|---|---|
-| Name | `local` |
-| FQDN | `wings` |
-| Communicate over SSL | Non |
-| Port | `8080` |
-| SFTP port | `2022` |
-| Memory | `7168` MiB |
-| Disk | `40000` MiB |
-| Daemon data | `/var/lib/pelican/volumes` |
+```bash
+FQDN=$(ip -4 addr show eth0 | awk '/inet /{print $2}' | cut -d/ -f1)
+docker compose exec -T panel php artisan p:node:make -n \
+  --name=local --description="WSL local" --fqdn="$FQDN" --public=1 --scheme=http --proxy=0 --maintenance=0 \
+  --maxMemory=7168 --overallocateMemory=0 --maxDisk=40000 --overallocateDisk=0 --maxCpu=0 --overallocateCpu=0 \
+  --uploadSize=256 --daemonListeningPort=8080 --daemonConnectingPort=8080 --daemonSFTPPort=2022 \
+  --daemonBase=/var/lib/pelican/volumes
+docker compose exec -T panel php artisan p:node:list
+```
 
-`wings` est l'alias réseau du conteneur Wings dans le compose : le panel le joint en interne.
-
-Sauvegarde, puis onglet **Configuration** : copie le bloc YAML.
+L'IP WSL peut changer après un redémarrage de Windows. Si le nœud passe au rouge, mets à jour le FQDN dans Admin > Nodes > local.
 
 ### Installer la config Wings
 
 ```bash
-sudo nano /etc/pelican/config.yml     # coller le YAML, Ctrl+O, Entrée, Ctrl+X
-sudo grep -E '^\s*remote:' /etc/pelican/config.yml
+docker compose exec -T panel php artisan p:node:configuration 1 -n > /etc/pelican/config.yml   # root
+sed -i -E "s|^(\s*remote:).*|\1 'http://panel'|" /etc/pelican/config.yml                      # root
+grep -E '^\s*remote:' /etc/pelican/config.yml
 ```
 
-La ligne `remote:` doit valoir `http://panel:8081` (nom du service compose + port de `APP_URL`). Si le panel a généré `http://localhost:8081`, remplace `localhost` par `panel`.
+La ligne `remote:` doit valoir `http://panel` (nom du service compose, port 80 interne).
 
 ```bash
 docker compose up -d wings
-sleep 5 && docker compose logs wings | tail -20
+sleep 8 && docker compose logs wings | tail -20
 curl -s http://localhost:8080 ; echo
 ```
 
-Attendu : logs sans `error`, et curl renvoie un JSON d'erreur d'autorisation (Wings répond, il refuse juste une requête sans jeton).
+Attendu : logs `sftp server listening`, `configuring internal webserver`, sans `FATAL`. Le curl renvoie un JSON d'erreur d'autorisation (Wings répond, il refuse juste une requête sans jeton).
 
-Dans le panel, la page Nodes affiche `local` avec une pastille verte. Si rouge : vérifier `remote:` et `docker compose logs wings`.
+Dans le panel, la page Nodes affiche `local` avec une pastille verte. Si rouge : vérifier le FQDN et `docker compose logs wings`.
+
+### Allocations de ports
+
+Le serveur Zomboid a besoin des allocations `0.0.0.0:16261` et `0.0.0.0:16262` sur le nœud :
+
+```bash
+docker compose exec -T panel php artisan tinker --execute='
+foreach ([16261, 16262] as $p) { App\Models\Allocation::firstOrCreate(["node_id" => 1, "ip" => "0.0.0.0", "port" => $p]); }'
+```
+
+(ou Admin > Nodes > local > Allocations dans le panel).
 
 ### Importer l'egg
 
-Panel > Admin > Eggs > Import, URL :
+Panel > Admin > Eggs > Import, onglet URL :
 
 ```
 https://raw.githubusercontent.com/pelican-eggs/games-steamcmd/main/project_zomboid/egg-project-zomboid.json
