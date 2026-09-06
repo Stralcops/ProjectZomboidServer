@@ -1,3 +1,5 @@
 .env
 backups/
 wings/config.yml
+*.local
+.*.sh
