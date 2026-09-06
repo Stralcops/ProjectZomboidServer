@@ -2,11 +2,11 @@
 
 setup() {
   TMP=$(mktemp -d)
-  export PZ_SERVER_DIR="$TMP/srv"
+  export PZ_SERVER_DIR="$TMP/vol/.cache"
   mkdir -p "$PZ_SERVER_DIR/Server"
   INI="$PZ_SERVER_DIR/Server/servertest.ini"
   printf 'PVP=false\nMods=\nWorkshopItems=\nMaxPlayers=8\n' > "$INI"
-  WS="$PZ_SERVER_DIR/steamapps/workshop/content/108600"
+  WS="$TMP/vol/steamapps/workshop/content/108600"
   MODS="$BATS_TEST_DIRNAME/../scripts/mods.sh"
 }
 

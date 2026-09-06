@@ -50,8 +50,21 @@ teardown() { rm -rf "$TMP"; }
   [ "$output" = "$TMP/s/Server/knox.ini" ]
 }
 
-@test "pz_workshop_dir pointe sur 108600" {
-  export PZ_SERVER_DIR="$TMP/s"
+@test "pz_workshop_dir pointe sur le parent du dossier serveur (à côté de .cache)" {
+  export PZ_SERVER_DIR="$TMP/vol/.cache"
   run pz_workshop_dir
-  [ "$output" = "$TMP/s/steamapps/workshop/content/108600" ]
+  [ "$output" = "$TMP/vol/steamapps/workshop/content/108600" ]
+}
+
+@test "pz_workshop_dir se replie sous le dossier serveur s'il n'existe qu'à cet endroit" {
+  export PZ_SERVER_DIR="$TMP/vol/.cache"
+  mkdir -p "$TMP/vol/.cache/steamapps/workshop/content/108600"
+  run pz_workshop_dir
+  [ "$output" = "$TMP/vol/.cache/steamapps/workshop/content/108600" ]
+}
+
+@test "PZ_WORKSHOP_DIR prime" {
+  export PZ_SERVER_DIR="$TMP/vol/.cache" PZ_WORKSHOP_DIR="$TMP/ws"
+  run pz_workshop_dir
+  [ "$output" = "$TMP/ws" ]
 }

@@ -33,8 +33,21 @@ pz_ini_path() {
   printf '%s/Server/%s.ini\n' "$dir" "${PZ_SERVER_NAME:-servertest}"
 }
 
+# Le serveur B42 range les items Workshop à côté de l'installation (parent de .cache) :
+#   <volume>/steamapps/workshop/content/108600/<workshop_id>/mods/<Nom>/42/mod.info
+# Repli sous le dossier serveur lui-même ; surcharge possible avec PZ_WORKSHOP_DIR.
 pz_workshop_dir() {
-  local dir
+  if [ -n "${PZ_WORKSHOP_DIR:-}" ]; then
+    printf '%s\n' "$PZ_WORKSHOP_DIR"
+    return 0
+  fi
+  local dir primary fallback
   dir=$(pz_server_dir) || return 1
-  printf '%s/steamapps/workshop/content/108600\n' "$dir"
+  primary="$(dirname "$dir")/steamapps/workshop/content/108600"
+  fallback="$dir/steamapps/workshop/content/108600"
+  if [ ! -d "$primary" ] && [ -d "$fallback" ]; then
+    printf '%s\n' "$fallback"
+  else
+    printf '%s\n' "$primary"
+  fi
 }
