@@ -26,6 +26,21 @@
   Claude-Session: https://claude.ai/code/session_01SztU1kHQtbPiaA19Fxhmgh
   ```
 
+## Statut d'exécution (2026-09-06)
+
+| Tâche | État | Notes |
+|---|---|---|
+| 1 Amorçage | fait | bats/shellcheck installés sous `~/.local/bin` (pas d'apt : sudo à mot de passe) |
+| 2 Compose | fait | ports 80/443 pris par un autre projet → 8081/8443 ; `BEHIND_PROXY=true` en local (Caddy ne sert sinon que l'hôte de `APP_URL`) |
+| 3 Installeur, nœud, egg | fait | nœud créé en CLI (`p:node:make`), FQDN = IP WSL, allocations via tinker |
+| 4 Serveur Zomboid | fait | créé via `ServerCreationService`, `-Xmx6g`, config vanilla fusionnée, SandboxVars capturé, `SERVER STARTED` |
+| 5 pzpath.sh | fait | correctif : le dossier Workshop est `<volume>/steamapps/workshop/content/108600`, pas sous `.cache` |
+| 6 mods.sh | fait | correctif : conserver droits/propriétaire (uid 988) ; test réel avec Minimap Style Options (3526517370), `loading MinimapStyleOptions.` dans le journal |
+| 7 backup/restore | scripts faits | test réel en cours |
+| 8 Planifications | fait | créées via tinker, `next_run_at` calculé avec `Utilities::getScheduleNextRunDate` ; « Run now » validé pour les deux |
+| 9 Docs | fait | LOCAL/OVH/MODS |
+| 10 Vérification finale | à faire | test de connexion client Steam par l'utilisateur |
+
 ## Structure des fichiers
 
 | Fichier | Responsabilité |
