@@ -31,6 +31,9 @@ ini_set() { # ini_set <key> <value> <file>  (atomique)
     cat "$file" > "$tmp"
     printf '%s=%s\n' "$key" "$val" >> "$tmp"
   fi
+  # conserver droits et propriétaire (le conteneur du jeu lit le fichier avec un autre uid)
+  chmod --reference="$file" "$tmp"
+  chown --reference="$file" "$tmp" 2>/dev/null || true
   mv "$tmp" "$file"
 }
 

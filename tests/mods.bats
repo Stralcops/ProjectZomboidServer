@@ -114,6 +114,13 @@ fake_mod() { # fake_mod <workshop_id> <mod_id> [sousdossier]
   [[ "$output" == *"introuvable"* ]]
 }
 
+@test "écriture conserve les droits du fichier (644)" {
+  chmod 644 "$INI"
+  fake_mod 111 CoolMod
+  "$MODS" add 111
+  [ "$(stat -c %a "$INI")" = "644" ]
+}
+
 @test "écriture atomique : aucun fichier temporaire ne reste" {
   fake_mod 111 CoolMod
   "$MODS" add 111
